@@ -1323,7 +1323,8 @@
 
             <div id="final-msg-s2" style="display:none; text-align: center; padding: 40px;">
                 <p style="color: var(--success); font-size: 1.3rem; margin-bottom: 20px;">"🕊️ Mesmo acontecendo em lugares diferentes, os conflitos afetam sonhos, famílias e futuros."</p>
-                <button class="btn-nav" onclick="showScreen(3)">Ir para Notícias e Mídia ➡️</button>
+                <button id="btn-ir-noticias" class="btn-nav" onclick="irParaNoticias()" disabled style="opacity:0.45; cursor:not-allowed;" title="Abra todas as seis notícias para continuar">Ir para Notícias e Mídia ➡️</button>
+                <p id="aviso-ir-noticias" style="color:rgba(255,255,255,0.5); font-size:0.82rem; margin-top:10px;">🔒 Abra todos os seis conflitos acima para liberar este botão.</p>
             </div>
         </section>
 
@@ -2965,6 +2966,18 @@
                 document.getElementById('fase2-quiz').style.display = 'block';
             }
 
+            // Restaurar botão "Ir para Notícias e Mídia" se todos os cards foram vistos
+            if (viewedSet.size >= totalCards) {
+                const btnIr = document.getElementById('btn-ir-noticias');
+                if (btnIr) {
+                    btnIr.disabled = false;
+                    btnIr.style.opacity = '1';
+                    btnIr.style.cursor = 'pointer';
+                }
+                const aviso = document.getElementById('aviso-ir-noticias');
+                if (aviso) aviso.style.display = 'none';
+            }
+
             // Restaurar última tela visitada
             const lastScreen = parseInt(p.currentScreen) || 1;
             if (lastScreen > 1) {
@@ -3050,10 +3063,25 @@
                 viewedSet.add(title);
                 if (viewedSet.size >= totalCards) {
                     document.getElementById('fase2-quiz').style.display = 'block';
+                    // Habilitar botão "Ir para Notícias e Mídia"
+                    const btnIr = document.getElementById('btn-ir-noticias');
+                    if (btnIr) {
+                        btnIr.disabled = false;
+                        btnIr.style.opacity = '1';
+                        btnIr.style.cursor = 'pointer';
+                    }
+                    const aviso = document.getElementById('aviso-ir-noticias');
+                    if (aviso) aviso.style.display = 'none';
                     saveProgress(getCurrentProgress());
                     registrarEvento('cards_vistos', 'Todos os 6 conflitos explorados');
                 }
             }, 100);
+        }
+
+        function irParaNoticias() {
+            const audioS2 = document.getElementById('bg-music-fase2');
+            if (audioS2) { audioS2.pause(); audioS2.currentTime = 0; }
+            showScreen(3);
         }
 
         function closeModal() { document.getElementById('modalConflito').style.display = 'none'; }
@@ -3673,7 +3701,20 @@
             const audioS2 = document.getElementById('bg-music-fase2');
 
             if (num === 2) {
-                audioS2.play().catch(e => console.log('Autoplay música bloqueado'));
+                audioS2.currentTime = 0;
+                audioS2.volume = 0.7;
+                const playPromise = audioS2.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => {
+                        console.log('Autoplay música bloqueado, aguardando interação');
+                        // Tentar novamente na próxima interação do usuário
+                        const tryPlay = () => {
+                            audioS2.play().catch(() => {});
+                            document.removeEventListener('click', tryPlay);
+                        };
+                        document.addEventListener('click', tryPlay, { once: true });
+                    });
+                }
             } else {
                 if (audioS2) { audioS2.pause(); audioS2.currentTime = 0; }
             }
