@@ -1074,7 +1074,43 @@
             <button class="login-btn" id="login-btn" onclick="handleAuth()">ENTRAR</button>
             <div class="login-error" id="login-error"></div>
             <div class="login-success" id="login-success"></div>
+            <div id="forgot-password-link" style="margin-top:14px; text-align:center;">
+                <a href="#" onclick="showForgotPassword(); return false;" style="color:#91c7ff; font-size:0.8rem; text-decoration:underline; cursor:pointer;">Esqueci minha senha</a>
+            </div>
             <div style="margin-top:20px; font-size:0.58rem; color:rgba(255,255,255,0.2); text-align:center; letter-spacing:0.5px;">Versão 1.1</div>
+        </div>
+
+        <!-- ===== RECUPERAÇÃO DE SENHA ===== -->
+        <div class="login-card" id="forgot-password-card" style="display:none;">
+            <div class="login-title" style="font-size:1.1rem;">RECUPERAR SENHA</div>
+            <div style="font-size:0.78rem; color:#91c7ff; font-weight:600; margin-bottom:24px; letter-spacing:0.3px;">Informe seu e-mail para receber o link de recuperação</div>
+            <div class="login-field">
+                <label>E-mail</label>
+                <input type="email" id="input-forgot-email" placeholder="seu@email.com">
+            </div>
+            <button class="login-btn" id="forgot-password-btn" onclick="handleForgotPassword()">ENVIAR LINK DE RECUPERAÇÃO</button>
+            <div class="login-error" id="forgot-password-error"></div>
+            <div class="login-success" id="forgot-password-success"></div>
+            <div style="margin-top:14px; text-align:center;">
+                <a href="#" onclick="hideForgotPassword(); return false;" style="color:#91c7ff; font-size:0.8rem; text-decoration:underline; cursor:pointer;">Voltar para o login</a>
+            </div>
+        </div>
+
+        <!-- ===== DEFINIR NOVA SENHA (após clicar no link do e-mail) ===== -->
+        <div class="login-card" id="new-password-card" style="display:none;">
+            <div class="login-title" style="font-size:1.1rem;">DEFINIR NOVA SENHA</div>
+            <div style="font-size:0.78rem; color:#91c7ff; font-weight:600; margin-bottom:24px; letter-spacing:0.3px;">Escolha uma nova senha para sua conta</div>
+            <div class="login-field">
+                <label>Nova senha</label>
+                <input type="password" id="input-new-password" placeholder="••••••••">
+            </div>
+            <div class="login-field">
+                <label>Confirme a nova senha</label>
+                <input type="password" id="input-new-password-confirm" placeholder="••••••••">
+            </div>
+            <button class="login-btn" id="new-password-btn" onclick="handleSetNewPassword()">SALVAR NOVA SENHA</button>
+            <div class="login-error" id="new-password-error"></div>
+            <div class="login-success" id="new-password-success"></div>
         </div>
     </div>
 
@@ -2807,6 +2843,89 @@
             onUserLoggedIn(data.user);
         }
 
+        // ============================================================
+        // RECUPERAÇÃO DE SENHA
+        // ============================================================
+        function showForgotPassword() {
+            document.querySelector('#login-screen .login-card').style.display = 'none';
+            document.getElementById('forgot-password-card').style.display = 'block';
+            document.getElementById('forgot-password-error').style.display = 'none';
+            document.getElementById('forgot-password-success').style.display = 'none';
+        }
+
+        function hideForgotPassword() {
+            document.getElementById('forgot-password-card').style.display = 'none';
+            document.querySelector('#login-screen .login-card').style.display = 'block';
+        }
+
+        async function handleForgotPassword() {
+            const email = document.getElementById('input-forgot-email').value.trim();
+            const errEl = document.getElementById('forgot-password-error');
+            const okEl = document.getElementById('forgot-password-success');
+            const btn = document.getElementById('forgot-password-btn');
+            errEl.style.display = 'none';
+            okEl.style.display = 'none';
+
+            if (!email) {
+                errEl.textContent = 'Digite seu e-mail.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Aguarde...';
+            try {
+                const redirectUrl = window.location.origin + window.location.pathname;
+                const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
+                if (error) throw error;
+                okEl.textContent = 'Link enviado! Verifique sua caixa de entrada (e o spam) para redefinir sua senha.';
+                okEl.style.display = 'block';
+            } catch (err) {
+                errEl.textContent = 'Não foi possível enviar o link. Verifique o e-mail digitado.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'ENVIAR LINK DE RECUPERAÇÃO';
+            }
+        }
+
+        function showNewPasswordScreen() {
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.querySelector('#login-screen .login-card').style.display = 'none';
+            document.getElementById('forgot-password-card').style.display = 'none';
+            document.getElementById('new-password-card').style.display = 'block';
+        }
+
+        async function handleSetNewPassword() {
+            const pass1 = document.getElementById('input-new-password').value;
+            const pass2 = document.getElementById('input-new-password-confirm').value;
+            const errEl = document.getElementById('new-password-error');
+            const okEl = document.getElementById('new-password-success');
+            const btn = document.getElementById('new-password-btn');
+            errEl.style.display = 'none';
+            okEl.style.display = 'none';
+
+            if (!pass1 || !pass2) { errEl.textContent = 'Preencha os dois campos.'; errEl.style.display = 'block'; return; }
+            if (pass1.length < 6) { errEl.textContent = 'A senha deve ter pelo menos 6 caracteres.'; errEl.style.display = 'block'; return; }
+            if (pass1 !== pass2) { errEl.textContent = 'As senhas não coincidem.'; errEl.style.display = 'block'; return; }
+
+            btn.disabled = true;
+            btn.textContent = 'Aguarde...';
+            try {
+                const { error } = await sb.auth.updateUser({ password: pass1 });
+                if (error) throw error;
+                okEl.textContent = 'Senha atualizada com sucesso! Redirecionando...';
+                okEl.style.display = 'block';
+                setTimeout(() => location.href = window.location.origin + window.location.pathname, 1800);
+            } catch (err) {
+                errEl.textContent = 'Não foi possível atualizar a senha. Tente solicitar o link novamente.';
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'SALVAR NOVA SENHA';
+            }
+        }
+
         async function handleLogout() {
             await sb.auth.signOut();
             currentUser = null;
@@ -3763,6 +3882,9 @@
             sb.auth.onAuthStateChange((event, session) => {
                 if (event === 'SIGNED_IN' && session) {
                     onUserLoggedIn(session.user);
+                }
+                if (event === 'PASSWORD_RECOVERY') {
+                    showNewPasswordScreen();
                 }
             });
         })();
